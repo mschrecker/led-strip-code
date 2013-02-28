@@ -63,7 +63,7 @@ void setup() {
   // Initialize random number generator from a floating analog input.
   randomSeed(analogRead(0));
   memset(imgData, 0, sizeof(imgData)); // Clear image data
-  fxVars[0] = 1;           // Mark back image as initialized
+  fxVars[0] = 0;           // Mark back image as initialized
 
   // Timer1 is used so the strip will update at a known fixed frame rate.
   // Each effect rendering function varies in processing complexity, so
@@ -213,6 +213,7 @@ void renderEffect02() {
 #define C_RED   160,   100,   0
 #define C_WHITE 10, 200, 0
 #define C_BLUE    64, 0, 110
+//#define C_BLUE 110, 0, 64
 PROGMEM prog_uchar flagTable[]  = {
   C_BLUE , C_WHITE, C_BLUE , C_WHITE, C_BLUE , C_WHITE, C_BLUE,
   C_RED  , C_WHITE, C_RED  , C_WHITE, C_RED  , C_WHITE, C_RED ,
