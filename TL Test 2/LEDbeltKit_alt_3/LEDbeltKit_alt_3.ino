@@ -58,7 +58,7 @@ LPD8806 strip = LPD8806(numPixels, dataPin, clockPin);
 // combined; it represents the opacity of the front image.  When the
 // transition completes, the "front" then becomes the "back," a new front
 // is chosen, and the process repeats.
-byte imgData[2][numPixels * 3], // Data for 2 strips worth of imagery
+byte imgData[1][numPixels * 3], // Data for 1 strips worth of imagery
      alphaMask[numPixels],      // Alpha channel for compositing images
      backImgIdx = 0,            // Index of 'back' image (always 0 or 1)
      fxIdx[3];                  // Effect # for back & front images + alpha
@@ -87,7 +87,7 @@ char fixCos(int angle);
 void (*renderEffect[])(byte) = {
 //  renderEffect00,
 //  renderEffect01,
-//  renderEffect02,
+  renderEffect02,
   renderEffect03 };
 /*
 (*renderAlpha[])(void)  = {
@@ -96,7 +96,7 @@ void (*renderEffect[])(byte) = {
   renderAlpha02 };
 */
 // ---------------------------------------------------------------------------
-
+ 
 void setup() {
   // Start up the LED strip.  Note that strip.show() is NOT called here --
   // the callback function will be invoked immediately when attached, and
@@ -163,6 +163,7 @@ void callback() {
       strip.setPixelColor(i, r, g, b);
     }
   } else {
+   
     // No transition in progress; just show back image
     for(i=0; i<numPixels; i++) {
       // See note above re: r, g, b vars.
@@ -225,7 +226,7 @@ void renderEffect01(byte idx) {
     // Number of repetitions (complete loops around color wheel); any
     // more than 4 per meter just looks too chaotic and un-rainbow-like.
     // Store as hue 'distance' around complete belt:
-    fxVars[idx][1] = (1 + random(2 * ((numPixels + 31) / 32))) * 1536;
+    fxVars[idx][1] = (1 + random(4 * ((numPixels + 31) / 32))) * 1536;
     // Frame-to-frame hue increment (speed) -- may be positive or negative,
     // but magnitude shouldn't be so small as to be boring.  It's generally
     // still less than a full pixel per frame, making motion very smooth.
@@ -285,9 +286,9 @@ void renderEffect02(byte idx) {
 // to the full LED strip length in the flag effect code, below.
 // Can change this data to the colors of your own national flag,
 // favorite sports team colors, etc.  OK to change number of elements.
-#define C_RED   160,   100,   0
-#define C_WHITE 10, 200, 0
-#define C_BLUE    64, 0, 110
+#define C_RED   160,   160,   0
+#define C_WHITE 255, 255, 255
+#define C_BLUE    100,   0, 100
 PROGMEM prog_uchar flagTable[]  = {
   C_BLUE , C_WHITE, C_BLUE , C_WHITE, C_BLUE , C_WHITE, C_BLUE,
   C_RED  , C_WHITE, C_RED  , C_WHITE, C_RED  , C_WHITE, C_RED ,
