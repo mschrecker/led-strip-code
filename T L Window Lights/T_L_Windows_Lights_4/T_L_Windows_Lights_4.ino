@@ -6,14 +6,14 @@
 /*****************************************************************************/
 
 // Number of RGB LEDs in strand:
-int nLEDs = 260;
+const int nLEDs = 260;
 
 // Chose 2 pins for output; can be any valid output pins:
 int dataPin  = 2;
 int clockPin = 3;
 
-byte imgData[3][floor(nLeds) * 3];
-byte startEnd[6] = {0, 86, 174};
+byte imgData[3][nLEDs];
+byte startEnd[4] = {0, 86, 174, 260};
 
 // First parameter is the number of LEDs in the strand.  The LED strips
 // are 32 LEDs per meter but you can extend or cut the strip.  Next two
@@ -40,12 +40,17 @@ void setup() {
 void loop() {
 
   // Send a simple pixel chase in...
+  byte i;
   
-  for(i=1; i<3; i++){
-    colorChase(strip.Color(127, 127, 127), 50); // White
+  for(i=0; i<4; i++){
+    int color = 20 + 30 * i;  
+    colorSubChase(&imgData[i], strip.Color(color, 100 - color, 0), startEnd[i], startEnd[i+1]-1); // White
+    
   }
   
-  
+  strip.show();
+    delay(10);
+
 //  colorChase(strip.Color(127,   0,   0), 50); // Red
 //  colorChase(strip.Color(127, 127,   0), 50); // Yellow
 //  colorChase(strip.Color(  0, 127,   0), 50); // Green
@@ -60,6 +65,24 @@ void loop() {
 //
 //  rainbow(10);
 //  rainbowCycle(0);  // make it go through the cycle fairly fast
+}
+
+
+// Chase one dot down the full strip.
+void colorSubChase(buffer, uint32_t c, byte startPixel, byte endPixel) {
+  int i;
+
+  // Start by turning all pixels off:
+  //for(i=startPixel; i<endPixel; i++) strip.setPixelColor(i, 0);
+
+  // Then display one pixel at a time:
+  for(i=startPixel; i<endPixel; i++) {
+    
+    strip.setPixelColor(i, c); // Set new pixel 'on
+    strip.setPixelColor(i-1,0); // set the previous pixel off
+    strip.show();
+  }
+
 }
 
 void rainbow(uint8_t wait) {
@@ -103,21 +126,7 @@ void colorWipe(uint32_t c, uint8_t wait) {
   }
 }
 
-// Chase one dot down the full strip.
-void colorSubChase(uint32_t c, byte startPixel, byte endPixel) {
-  int i;
 
-  // Start by turning all pixels off:
-  //for(i=startPixel; i<endPixel; i++) strip.setPixelColor(i, 0);
-
-  // Then display one pixel at a time:
-  for(i=startPixel; i<endPixel; i++) {
-    strip.setPixelColor(i, c); // Set new pixel 'on'
-    strip.setPixelColor(i, 0); // Erase pixel, but don't refresh!
-  }
-
-  strip.show(); // Refresh to turn off last pixel
-}
 
 // Chase one dot down the full strip.
 void colorChase(uint32_t c, uint8_t wait) {
