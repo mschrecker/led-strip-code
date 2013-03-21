@@ -12,8 +12,11 @@ const int nLEDs = 260;
 int dataPin  = 2;
 int clockPin = 3;
 
-byte imgData[3][nLEDs];
-word startEnd[4] = {0, 86, 174, 260};
+// Setup image data arrays
+//byte imgData[3][nLEDs];
+//int  fxVars[50],             // Effect instance variables 
+
+word startEnd[4] = {0, nLEDs/3, (nLEDs/3) *2, 260}; // index points for strip segment ID
 
 LPD8806 strip = LPD8806(nLEDs, dataPin, clockPin);
 
