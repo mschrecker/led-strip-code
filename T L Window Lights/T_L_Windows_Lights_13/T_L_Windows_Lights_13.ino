@@ -51,7 +51,8 @@ void (*renderEffect[])(byte) = {
   renderEffect00,
   renderEffect01,
   renderEffect02,
-  renderEffect03 };
+  renderEffect03,
+  renderEffect04 };
 
 
 void setup() {
@@ -175,7 +176,8 @@ void renderEffect00(byte idx) {
 
 
 
-// Rainbow effect (1 or more full loops of color wheel at 100% saturation).
+// Rainbow effect  with sparkles!
+//(1 or more full loops of color wheel at 100% saturation).
 // Not a big fan of this pattern (it's way overused with LED stuff), but it's
 // practically part of the Geneva Convention by now.
 void renderEffect01(byte idx) {
@@ -197,18 +199,32 @@ void renderEffect01(byte idx) {
     fxVars[idx][0] = 1; // Effect initialized
   }
 
+
+
+
   byte *ptr = imgData[idx];
   long color;
-  int i;
+  int i, j; //counter, random pixel
+
+  j = random (startEnd[idx+1] - startEnd[idx]) + startEnd[idx];
+
+
   for(i= startEnd[idx]; i< startEnd[idx+1]; i++) {
-    color = hsv2rgb(fxVars[idx][3] + fxVars[idx][1] * i / (startEnd[idx+1] - startEnd[idx]),
+    if (i == j) {
+      color = hsv2rgb(fxVars[idx][3] + fxVars[idx][1] * i / (startEnd[idx+1] - startEnd[idx]),
       fxVars[idx][4], 255);
+      *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
+    }
+    else  {       
+    color = hsv2rgb(fxVars[idx][3] + fxVars[idx][1] * i / (startEnd[idx+1] - startEnd[idx]),
+     255 , 255);
     *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-  }
+    }
   fxVars[idx][3] += fxVars[idx][2];
   fxVars[idx][4] --;
-}
+  }
 
+}
 //
 //
 //
@@ -367,6 +383,46 @@ void renderEffect03(byte idx) {
        }
   }
 }
+
+
+
+
+// Rainbow effect (1 or more full loops of color wheel at 100% saturation).
+// Not a big fan of this pattern (it's way overused with LED stuff), but it's
+// practically part of the Geneva Convention by now.
+void renderEffect04(byte idx) {
+  if(fxVars[idx][0] == 0) { // Initialize effect?
+    // Number of repetitions (complete loops around color wheel); any
+    // more than 4 per meter just looks too chaotic and un-rainbow-like.
+    // Store as hue 'distance' around complete belt:
+    fxVars[idx][1] = (1 + random(2 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 1536;
+    // Frame-to-frame hue increment (speed) -- may be positive or negative,
+    // but magnitude shouldn't be so small as to be boring.  It's generally
+    // still less than a full pixel per frame, making motion very smooth.
+    fxVars[idx][2] = 2 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
+    // Reverse speed and hue shift direction half the time.
+    if(random(2) == 0) fxVars[idx][1] = -fxVars[idx][1];
+    if(random(2) == 0) fxVars[idx][2] = -fxVars[idx][2];
+    fxVars[idx][3] = 0; // Current position
+    fxVars[idx][4] = 255; // Saturation value
+ 
+    fxVars[idx][0] = 1; // Effect initialized
+  }
+
+  byte *ptr = imgData[idx];
+  long color;
+  int i;
+  for(i= startEnd[idx]; i< startEnd[idx+1]; i++) {
+    color = hsv2rgb(fxVars[idx][3] + fxVars[idx][1] * i / (startEnd[idx+1] - startEnd[idx]),
+      fxVars[idx][4], 255);
+    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
+  }
+  fxVars[idx][3] += fxVars[idx][2];
+  fxVars[idx][4] --;
+}
+
+
+
 // ---------------------------------------------------------------------------
 // Assorted fixed-point utilities below this line.  Not real interesting.
 
