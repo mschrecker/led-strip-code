@@ -7,18 +7,19 @@
 /*****************************************************************************/
 
 // Number of RGB LEDs in strand:
-const int nLEDs = 256;
+const int nLEDs = 256; //160 or 256
 
 // Chose 2 pins for output; can be any valid output pins:
 int dataPin  = 2;
 int clockPin = 3;
 
 // Setup image data arrays
-byte imgData[3][282];  //large enough to fit the data for the longest segment (segment leds * 3) 
+byte imgData[3][282];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
 // 282 for long, 180 for short
 int  fxVars[3][6];             // Effect instance variables 
 int  startEnd[4] = {0, 82, 176, 256}; // index points for strip segment ID, hard coded for TL window segments
-
+// {0, 82, 176, 256} for long
+// {0, 50, 110, 160} for short
 // Program variables
 
 byte      renderIdx[3] = {0, 0 , 0};        // hard coded render choice start state
@@ -71,7 +72,7 @@ void setup() {
   // the timer allows smooth transitions between effects (otherwise the
   // effects and transitions would jump around in speed...not attractive).
   Timer1.initialize();
-  Timer1.attachInterrupt(callback, 1000000 / 300); // 60 = 60 frames/second
+  Timer1.attachInterrupt(callback, 1000000 / 60); // 60 = 60 frames/second
 
 }
 
@@ -122,7 +123,7 @@ void callback() {
     // Randomly pick next image effect and alpha effect indices:
       renderIdx[k] = random((sizeof(renderEffect) / sizeof(renderEffect[0])));
       fxVars[k][0] = 0; // Effect not yet initialized    
-      tCounter[k]   = -600 - random(600); // Hold image X to Y      seconds
+      tCounter[k]   = -800 - random(600); // Hold image X to Y      seconds
     }
   
   }
@@ -193,7 +194,8 @@ void renderEffect01(byte idx) {
     if(random(2) == 0) fxVars[idx][1] = -fxVars[idx][1];
     if(random(2) == 0) fxVars[idx][2] = -fxVars[idx][2];
     fxVars[idx][3] = 0; // Current position
-    fxVars[idx][4] = 255; // Saturation value
+    fxVars[idx][4] = 254; // Saturation value
+    fxVars[idx][5] = -1; // Saturation direction
  
     fxVars[idx][0] = 1; // Effect initialized
   }
@@ -207,8 +209,10 @@ void renderEffect01(byte idx) {
     *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
   }
   fxVars[idx][3] += fxVars[idx][2];
-  fxVars[idx][4] --;
-}
+  fxVars[idx][4] += fxVars[idx][5];
+  if (fxVars[idx][4] <= 64) fxVars[idx][5] = -fxVars[idx][5];
+  if (fxVars[idx][4] >= 255) fxVars[idx][5] = -fxVars[idx][5];
+ }
 
 //
 //
