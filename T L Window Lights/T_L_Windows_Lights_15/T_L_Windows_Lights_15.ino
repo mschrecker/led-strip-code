@@ -16,7 +16,8 @@ int clockPin = 3;
 // Setup image data arrays
 byte imgData[3][180];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
 // 282 for long, 180 for short
-int  fxVars[3][6];             // Effect instance variables 
+int  fxVars[3][6];             // Effect instance variables
+long fxVarLongs[3][6];        // Effect instance long variables
 int  startEnd[4] = {0, 50, 110, 160}; // index points for strip segment ID, hard coded for TL window segments
 // {0, 82, 176, 256} for long
 // {0, 50, 110, 160} for short
@@ -66,6 +67,8 @@ void setup() {
   fxVars[0][0] = 0;           // Mark back image as initialized
   fxVars[1][0] = 0;           // Mark back image as initialized
   fxVars[2][0] = 0;           // Mark back image as initialized
+  
+
 
   // Timer1 is used so the strip will update at a known fixed frame rate.
   // Each effect rendering function varies in processing complexity, so
@@ -334,7 +337,7 @@ void renderEffect01(byte idx) {
 // Sine wave chase effect
 void renderEffect00(byte idx) {
   if(fxVars[idx][0] == 0) { // Initialize effect?
-    fxVars[idx][1] = random(720); // Random hue
+    fxVarLongs[idx][1] = random(720); // Random hue
     // Number of repetitions (complete loops around color wheel);
     // any more than 4 per meter just looks too chaotic.
     // Store as distance around complete belt in half-degree units:
@@ -358,8 +361,8 @@ void renderEffect00(byte idx) {
     // Peaks of sine wave are white, troughs are black, mid-range
     // values are pure hue (100% saturated).
     color = (foo >= 0) ?
-       hsv2rgb(fxVars[idx][1], 254 - (foo * 2), 255) :
-       hsv2rgb(fxVars[idx][1], 255, 254 + foo * 2);
+       hsv2rgb(fxVarLongs[idx][1], 254 - (foo * 2), 255) :
+       hsv2rgb(fxVarLongs[idx][1], 255, 254 + foo * 2);
     *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
   }
   fxVars[idx][4] += fxVars[idx][3];
