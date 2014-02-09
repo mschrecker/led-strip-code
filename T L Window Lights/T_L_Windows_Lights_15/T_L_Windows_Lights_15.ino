@@ -7,18 +7,18 @@
 /*****************************************************************************/
 
 // Number of RGB LEDs in strand:
-const int nLEDs = 160; //160 or 256
+const int nLEDs = 256; //160 or 256
 
 // Chose 2 pins for output; can be any valid output pins:
 int dataPin  = 2;
 int clockPin = 3;
 
 // Setup image data arrays
-byte imgData[3][180];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
+byte imgData[3][256];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
 // 282 for long, 180 for short
 int  fxVars[3][6];             // Effect instance variables
 long fxVarLongs[3][6];        // Effect instance long variables
-int  startEnd[4] = {0, 50, 110, 160}; // index points for strip segment ID, hard coded for TL window segments
+int  startEnd[4] = {0, 82, 176, 256}; // index points for strip segment ID, hard coded for TL window segments
 // {0, 82, 176, 256} for long
 // {0, 50, 110, 160} for short
 // Program variables
@@ -51,8 +51,8 @@ char fixCos(int angle);
 // each of these appears later in this file.  Just a few to start with...
 // simply append new ones to the appropriate list here:
 void (*renderEffect[])(byte) = {
-  renderEffect00/*,
-  renderEffect01,
+  renderEffect00,
+  renderEffect01/*,
   renderEffect02,
   renderEffect03*/};
 
@@ -102,10 +102,7 @@ void callback() {
     byte *stripPtr    = &imgData[k][0],
          r, g, b;
     int  i;
-
-//  delay(10000);
-
-  // Always render strip image based on current effect index:
+    // Always render strip image based on current effect index:
     (*renderEffect[renderIdx[k]])(k);
 
     for(i=startEnd[k]; i<startEnd[k+1]; i++) {
@@ -115,10 +112,8 @@ void callback() {
       b = gamma(*stripPtr++);
       strip.setPixelColor(i, r, g, b);
     }
-//   fxVars[k][0] = 0; // Effect not yet initialized
 
-
-      // Count up to next transition (or end of current one):
+     // Count up to next transition (or end of current one):
    
     tCounter[k]++;
 
@@ -148,76 +143,46 @@ void callback() {
 // been initialized yet.  When the back/front image indexes swap at the end of
 // each transition, the corresponding set of fxVars, being keyed to the same
 // indexes, are automatically carried with them.
-/*
-// Simplest rendering effect: fill entire image with solid color
+
+
+// Sine wave chase effect
 void renderEffect00(byte idx) {
-  // Only needs to be rendered once, when effect is initialized:
-  if(fxVars[idx][0] == 0) {
-//  byte r, g, b;
-//    byte *ptr = imgData[idx];
-//      switch (idx) {
-//        case 0:
-//           r= 128 - fxVars[idx][0]; g=0; b=0;
-//          break;
-//         case 1:
-//           r=0; g=128 - fxVars[idx][0]; b=0;
-//           break;
-//           case 2:
-//           r=0; g=0, b=128 - fxVars[idx][0];
-//      }
-      
-  byte *ptr = imgData[idx],
-      r = 256, g = random(1),
-      b = random(1);
-    for(int i= startEnd[idx]; i< startEnd[idx+1]; i++) {
-      *ptr++ = r; *ptr++ = g; *ptr++ = b;
- 
-      
-    
-    }
-    fxVars[idx][0]= 1; // Effect initialized
+  if(fxVars[idx][0] == 0) { // Initialize effect?
+    fxVarLongs[idx][1] = random(1536); // Random hue
+    // Number of repetitions (complete loops around color wheel);
+    // any more than 4 per meter just looks too chaotic.
+    // Store as distance around complete belt in half-degree units:
+  //  fxVars[idx][2] = (1 + random(4 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 720; //32=led's per meter
+    fxVars[idx][2] = 600;
+    // Frame-to-frame increment (speed) -- may be positive or negative,
+    // but magnitude shouldn't be so small as to be boring.  It's generally
+    // still less than a full pixel per frame, making motion very smooth.
+    fxVars[idx][3] = 4 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
+    // Reverse direction half the time.
+    if(random(2) == 0) fxVars[idx][3] = -fxVars[idx][3];
+    fxVars[idx][4] = 0; // Current position
+    fxVars[idx][0] = 1; // Effect initialized
   }
-}
-*/
 
-/*
-// Simplest rendering effect: fill entire image with solid color
-void renderEffect03(byte idx) {
-  // Only needs to be rendered once, when effect is initialized:
-  if(fxVars[idx][0] == 0) {
-//  byte r, g, b;
-//    byte *ptr = imgData[idx];
-//      switch (idx) {
-//        case 0:
-//           r= 128 - fxVars[idx][0]; g=0; b=0;
-//          break;
-//         case 1:
-//           r=0; g=128 - fxVars[idx][0]; b=0;
-//           break;
-//           case 2:
-//           r=0; g=0, b=128 - fxVars[idx][0];
-//      }
-  byte r, g, b;
   byte *ptr = imgData[idx];
-  
-  r = 1, g = 256, b = 1;
-  
-    for(int i= startEnd[idx]; i< startEnd[idx+1]; i++) {
-      *ptr++ = r; *ptr++ = g; *ptr++ = b;
- 
-      
-    
-    }
-    fxVars[idx][0]= 1; // Effect initialized
+  int  foo;
+  long color, i;
+  for(long i=0; i<(startEnd[idx+1] - startEnd[idx]); i++) {
+    foo = fixSin(fxVars[idx][4] + fxVars[idx][2] * i / (startEnd[idx+1] - startEnd[idx]));
+    // Peaks of sine wave are white, troughs are black, mid-range
+    // values are pure hue (100% saturated).
+    color = (foo >= 0) ?
+       hsv2rgb(fxVarLongs[idx][1], 254 - (foo * 2), 255) :
+       hsv2rgb(fxVarLongs[idx][1], 255, 254 + foo * 2);
+    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
   }
+  fxVars[idx][4] += fxVars[idx][3];
 }
 
-*/
-/*
 
-// Rainbow effect (1 or more full loops of color wheel at 100% saturation).
-// Not a big fan of this pattern (it's way overused with LED stuff), but it's
-// practically part of the Geneva Convention by now.
+
+// Rainbow effect with gradual de-saturation.
+ 
 void renderEffect01(byte idx) {
   if(fxVars[idx][0] == 0) { // Initialize effect?
     // Number of repetitions (complete loops around color wheel); any
@@ -252,7 +217,7 @@ void renderEffect01(byte idx) {
   if (fxVars[idx][4] >= 255) fxVars[idx][5] = -fxVars[idx][5];
  }
  
- */
+ 
 
 //
 //
@@ -295,78 +260,6 @@ void renderEffect01(byte idx) {
 //
 
  
-/*
-
-// Sine wave chase effect
-void renderEffect01(byte idx) {
-  if(fxVars[idx][0] == 0) { // Initialize effect?
-    fxVars[idx][1] = 1; // Random hue
-    // Number of repetitions (complete loops around color wheel);
-    // any more than 4 per meter just looks too chaotic.
-    // Store as distance around complete belt in half-degree units:
-  //  fxVars[idx][2] = (1 + random(4 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 720; //32=led's per meter
-    fxVars[idx][2] = 720;
-    // Frame-to-frame increment (speed) -- may be positive or negative,
-    // but magnitude shouldn't be so small as to be boring.  It's generally
-    // still less than a full pixel per frame, making motion very smooth.
-    fxVars[idx][3] = 4 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
-    // Reverse direction half the time.
-    if(random(2) == 0) fxVars[idx][3] = -fxVars[idx][3];
-    fxVars[idx][4] = 0; // Current position
-    fxVars[idx][0] = 1; // Effect initialized
-  }
-
-  byte *ptr = imgData[idx];
-  int  foo;
-  long color, i;
-  for(long i=0; i<(startEnd[idx+1] - startEnd[idx]); i++) {
-    foo = fixSin(fxVars[idx][4] + fxVars[idx][2] * i / (startEnd[idx+1] - startEnd[idx]));
-    // Peaks of sine wave are white, troughs are black, mid-range
-    // values are pure hue (100% saturated).
-    color = (foo >= 0) ?
-       hsv2rgb(fxVars[idx][1], 254 - (foo * 2), 255) :
-       hsv2rgb(fxVars[idx][1], 255, 254 + foo * 2);
-    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-  }
-  fxVars[idx][4] += fxVars[idx][3];
-}
-
-
-*/
-
-// Sine wave chase effect
-void renderEffect00(byte idx) {
-  if(fxVars[idx][0] == 0) { // Initialize effect?
-    fxVarLongs[idx][1] = random(720); // Random hue
-    // Number of repetitions (complete loops around color wheel);
-    // any more than 4 per meter just looks too chaotic.
-    // Store as distance around complete belt in half-degree units:
-  //  fxVars[idx][2] = (1 + random(4 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 720; //32=led's per meter
-    fxVars[idx][2] = 720;
-    // Frame-to-frame increment (speed) -- may be positive or negative,
-    // but magnitude shouldn't be so small as to be boring.  It's generally
-    // still less than a full pixel per frame, making motion very smooth.
-    fxVars[idx][3] = 4 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
-    // Reverse direction half the time.
-    if(random(2) == 0) fxVars[idx][3] = -fxVars[idx][3];
-    fxVars[idx][4] = 0; // Current position
-    fxVars[idx][0] = 1; // Effect initialized
-  }
-
-  byte *ptr = imgData[idx];
-  int  foo;
-  long color, i;
-  for(long i=0; i<(startEnd[idx+1] - startEnd[idx]); i++) {
-    foo = fixSin(fxVars[idx][4] + fxVars[idx][2] * i / (startEnd[idx+1] - startEnd[idx]));
-    // Peaks of sine wave are white, troughs are black, mid-range
-    // values are pure hue (100% saturated).
-    color = (foo >= 0) ?
-       hsv2rgb(fxVarLongs[idx][1], 254 - (foo * 2), 255) :
-       hsv2rgb(fxVarLongs[idx][1], 255, 254 + foo * 2);
-    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-  }
-  fxVars[idx][4] += fxVars[idx][3];
-}
 
 
 /*

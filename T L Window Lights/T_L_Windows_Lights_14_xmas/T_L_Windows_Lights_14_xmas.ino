@@ -145,54 +145,13 @@ void callback() {
 // been initialized yet.  When the back/front image indexes swap at the end of
 // each transition, the corresponding set of fxVars, being keyed to the same
 // indexes, are automatically carried with them.
-/*
-// Simplest rendering effect: fill entire image with solid color
-void renderEffect00(byte idx) {
-  // Only needs to be rendered once, when effect is initialized:
-  if(fxVars[idx][0] == 0) {
-//  byte r, g, b;
-//    byte *ptr = imgData[idx];
-//      switch (idx) {
-//        case 0:
-//           r= 128 - fxVars[idx][0]; g=0; b=0;
-//          break;
-//         case 1:
-//           r=0; g=128 - fxVars[idx][0]; b=0;
-//           break;
-//           case 2:
-//           r=0; g=0, b=128 - fxVars[idx][0];
-//      }
-      
-  byte *ptr = imgData[idx],
-      r = 256, g = random(1),
-      b = random(1);
-    for(int i= startEnd[idx]; i< startEnd[idx+1]; i++) {
-      *ptr++ = r; *ptr++ = g; *ptr++ = b;
- 
-      
-    
-    }
-    fxVars[idx][0]= 1; // Effect initialized
-  }
-}
-*/
+
 // Simplest rendering effect: fill entire image with solid color
 void renderEffect03(byte idx) {
   // Only needs to be rendered once, when effect is initialized:
   if(fxVars[idx][0] == 0) {
-//  byte r, g, b;
-//    byte *ptr = imgData[idx];
-//      switch (idx) {
-//        case 0:
-//           r= 128 - fxVars[idx][0]; g=0; b=0;
-//          break;
-//         case 1:
-//           r=0; g=128 - fxVars[idx][0]; b=0;
-//           break;
-//           case 2:
-//           r=0; g=0, b=128 - fxVars[idx][0];
-//      }
-  byte r, g, b;
+
+    byte r, g, b;
   byte *ptr = imgData[idx];
   
   r = 1, g = 256, b = 1;
