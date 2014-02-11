@@ -1,47 +1,45 @@
-#include "LPD8806.h"
+// This is a modified verson of the LEDbeltKit_alt code from
+// the LPD8806 library. This code requires that library to run.
+
+// It's been modified to run longer light strings by sacrificing
+// the second pattern array and not having fancy transitions
+// between patterns.
+
+
+#include <avr/pgmspace.h>
 #include "SPI.h"
+#include "LPD8806.h"q
 #include "TimerOne.h"
 
-// Example to control LPD8806-based RGB LED Modules in a strip
-
-/*****************************************************************************/
-
-// Number of RGB LEDs in strand:
-const int nLEDs = 160; //160 or 256 ***** change me for different strips
-
-// Chose 2 pins for output; can be any valid output pins:
-int dataPin  = 2;
+// Pinouts for a duemillinove
+int dataPin = 2;
 int clockPin = 3;
 
-// Setup image data arrays
-byte imgData[3][180];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
-// 282 for long, 180 for short ***** change me for different strips
-int  fxVars[3][6];             // Effect instance variables
-long fxVarLongs[3][6];        // Effect instance long variables
-int  startEnd[4] = {0, 50, 110, 160}; // index points for strip segment ID, hard coded for TL window segments
-// {0, 82, 176, 256} for long
-// {0, 50, 110, 160} for short
-// ***** change me for different strips
-// Program variables
+// Declare the number of pixels in strand; 32 = 32 pixels in a row.  The
+// LED strips have 32 LEDs per meter, but you can extend or cut the strip.
+const int numPixels = 160;
+// 'const' makes subsequent array declarations possible, otherwise there
+// would be a pile of malloc() calls later.
 
-byte      renderIdx[3] = {0, 0 , 0};        // hard coded render choice start state
-int       tCounter[3] = {-100, -150, -200};         // Countdowns to next transition for each segment
+// Instantiate LED strip; arguments are the total number of pixels in strip,
+// the data pin number and clock pin number:
+LPD8806 strip = LPD8806(numPixels, dataPin, clockPin);
 
-LPD8806 strip = LPD8806(nLEDs, dataPin, clockPin);
+// You can also use hardware SPI for ultra-fast writes by omitting the data
+// and clock pin arguments.  This is faster, but the data and clock are then
+// fixed to very specific pin numbers: on Arduino 168/328, data = pin 11,
+// clock = pin 13.  On Mega, data = pin 51, clock = pin 52.
+//LPD8806 strip = LPD8806(numPixels);
 
-// You can optionally use hardware SPI for faster writes, just leave out
-// the data and clock pin parameters.  But this does limit use to very
-// specific pins on the Arduino.  For "classic" Arduinos (Uno, Duemilanove,
-// etc.), data = pin 11, clock = pin 13.  For Arduino Mega, data = pin 51,
-// clock = pin 52.  For 32u4 Breakout Board+ and Teensy, data = pin B2,
-// clock = pin B1.  For Leonardo, this can ONLY be done on the ICSP pins.
-//LPD8806 strip = LPD8806(nLEDs);
+byte imgData[numPixels * 3]; // Data for 1 long strips worth of imagery
+int  fxVars[50];             // Effect instance variables (explained later)
+long fxVarLongs[20];          // effect instance long variables
 
 // function prototypes, leave these be :)
-void renderEffect00(byte idx);
-void renderEffect01(byte idx);
-void renderEffect02(byte idx);
-void renderEffect03(byte idx);
+void renderEffect00();
+//void renderEffect01();
+//void renderEffect02();
+//void renderEffect03();
 void callback();
 byte gamma(byte x);
 long hsv2rgb(long h, byte s, byte v);
@@ -51,25 +49,22 @@ char fixCos(int angle);
 // List of image effect and alpha channel rendering functions; the code for
 // each of these appears later in this file.  Just a few to start with...
 // simply append new ones to the appropriate list here:
-void (*renderEffect[])(byte) = {
-  renderEffect00,
-  renderEffect01/*,
-  renderEffect02,
-  renderEffect03*/};
-
+void (*renderEffect[])() = {
+  renderEffect00 /*,
+//  renderEffect01,
+//  renderEffect02,
+  renderEffect03 */};
 
 void setup() {
-  // Start up the LED strip
+  // Start up the LED strip.  Note that strip.show() is NOT called here --
+  // the callback function will be invoked immediately when attached, and
+  // the first thing the calback does is update the strip.
   strip.begin();
- 
- // Initialize random number generator from a floating analog input.
-  randomSeed(analogRead(0));
-  memset(imgData, 60, sizeof(imgData)); // Clear image data
-  fxVars[0][0] = 0;           // Mark back image as initialized
-  fxVars[1][0] = 0;           // Mark back image as initialized
-  fxVars[2][0] = 0;           // Mark back image as initialized
-  
 
+  // Initialize random number generator from a floating analog input.
+  randomSeed(analogRead(0));
+  memset(imgData, 0, sizeof(imgData)); // Clear image data
+  fxVars[0] = 0;           // Mark back image as initialized
 
   // Timer1 is used so the strip will update at a known fixed frame rate.
   // Each effect rendering function varies in processing complexity, so
@@ -77,7 +72,6 @@ void setup() {
   // effects and transitions would jump around in speed...not attractive).
   Timer1.initialize();
   Timer1.attachInterrupt(callback, 1000000 / 60); // 60 = 60 frames/second
-
 }
 
 void loop() {
@@ -95,39 +89,23 @@ void callback() {
   // unevenness would be apparent if show() were called at the end.
   strip.show();
 
+  byte *backPtr    = &imgData[0],
+       r, g, b;
+  int  i;
 
-  byte k;
+  // Always render back image based on current effect index:
+  (*renderEffect)();
 
-  for (k=0; k<3; k++) {
-  
-    byte *stripPtr    = &imgData[k][0],
-         r, g, b;
-    int  i;
-    // Always render strip image based on current effect index:
-    (*renderEffect[renderIdx[k]])(k);
-
-    for(i=startEnd[k]; i<startEnd[k+1]; i++) {
+   // No transition in progress; just show back image
+    for(i=0; i<numPixels; i++) {
       // See note above re: r, g, b vars.
-      r = gamma(*stripPtr++);
-      g = gamma(*stripPtr++);
-      b = gamma(*stripPtr++);
+      r = gamma(*backPtr++);
+      g = gamma(*backPtr++);
+      b = gamma(*backPtr++);
       strip.setPixelColor(i, r, g, b);
     }
-
-     // Count up to next transition (or end of current one):
-   
-    tCounter[k]++;
-
-    if(tCounter[k] >= 0) { // Transition start
-    // Randomly pick next image effect and alpha effect indices:
-      renderIdx[k] = random((sizeof(renderEffect) / sizeof(renderEffect[0])));
-      fxVars[k][0] = 0; // Effect not yet initialized    
-      tCounter[k]   = -800 - random(600); // Hold image X to Y      seconds
-    }
-  
   }
-  
-}
+
 
 
 // ---------------------------------------------------------------------------
@@ -145,126 +123,89 @@ void callback() {
 // each transition, the corresponding set of fxVars, being keyed to the same
 // indexes, are automatically carried with them.
 
-
-// Sine wave chase effect
-void renderEffect00(byte idx) {
-  if(fxVars[idx][0] == 0) { // Initialize effect?
-    fxVarLongs[idx][1] = random(1536); // Random hue
-    // Number of repetitions (complete loops around color wheel);
-    // any more than 4 per meter just looks too chaotic.
-    // Store as distance around complete belt in half-degree units:
-  //  fxVars[idx][2] = (1 + random(4 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 720; //32=led's per meter
-    fxVars[idx][2] = 600;
-    // Frame-to-frame increment (speed) -- may be positive or negative,
-    // but magnitude shouldn't be so small as to be boring.  It's generally
-    // still less than a full pixel per frame, making motion very smooth.
-    fxVars[idx][3] = 4 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
-    // Reverse direction half the time.
-    if(random(2) == 0) fxVars[idx][3] = -fxVars[idx][3];
-    fxVars[idx][4] = 0; // Current position
-    fxVars[idx][0] = 1; // Effect initialized
+// Simplest rendering effect: fill entire image with solid color
+void renderEffect00() {
+  // Only needs to be rendered once, when effect is initialized:
+  if(fxVars[0] == 0) {
+    byte *ptr = &imgData[0],
+      r = random(256), g = random(256), b = random(256);
+    for(int i=0; i<numPixels; i++) {
+      *ptr++ = r; *ptr++ = g; *ptr++ = b;
+    }
+    fxVars[0] = 1; // Effect initialized
   }
-
-  byte *ptr = imgData[idx];
-  int  foo;
-  long color, i;
-  for(long i=0; i<(startEnd[idx+1] - startEnd[idx]); i++) {
-    foo = fixSin(fxVars[idx][4] + fxVars[idx][2] * i / (startEnd[idx+1] - startEnd[idx]));
-    // Peaks of sine wave are white, troughs are black, mid-range
-    // values are pure hue (100% saturated).
-    color = (foo >= 0) ?
-       hsv2rgb(fxVarLongs[idx][1], 254 - (foo * 2), 255) :
-       hsv2rgb(fxVarLongs[idx][1], 255, 254 + foo * 2);
-    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-  }
-  fxVars[idx][4] += fxVars[idx][3];
 }
 
 
-
-// Rainbow effect with gradual de-saturation.
- 
-void renderEffect01(byte idx) {
-  if(fxVars[idx][0] == 0) { // Initialize effect?
+/*
+// Rainbow effect (1 or more full loops of color wheel at 100% saturation).
+// Not a big fan of this pattern (it's way overused with LED stuff), but it's
+// practically part of the Geneva Convention by now.
+void renderEffect01() {
+  if(fxVars[0] == 0) { // Initialize effect?
     // Number of repetitions (complete loops around color wheel); any
     // more than 4 per meter just looks too chaotic and un-rainbow-like.
     // Store as hue 'distance' around complete belt:
-    fxVars[idx][1] = (1 + random(2 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 1536;
+    fxVars[1] = (1 + random(2 * ((numPixels + 31) / 32))) * 1536;
     // Frame-to-frame hue increment (speed) -- may be positive or negative,
     // but magnitude shouldn't be so small as to be boring.  It's generally
     // still less than a full pixel per frame, making motion very smooth.
-    fxVars[idx][2] = 2 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
+    fxVars[2] = 2 + random(fxVars[1]) / numPixels;
     // Reverse speed and hue shift direction half the time.
-    if(random(2) == 0) fxVars[idx][1] = -fxVars[idx][1];
-    if(random(2) == 0) fxVars[idx][2] = -fxVars[idx][2];
-    fxVars[idx][3] = 0; // Current position
-    fxVars[idx][4] = 254; // Saturation value
-    fxVars[idx][5] = -1; // Saturation direction
- 
-    fxVars[idx][0] = 1; // Effect initialized
+    if(random(2) == 0) fxVars[1] = -fxVars[1];
+    if(random(2) == 0) fxVars[2] = -fxVars[2];
+    fxVars[3] = 0; // Current position
+    fxVars[0] = 1; // Effect initialized
   }
 
-  byte *ptr = imgData[idx];
-  long color;
-  int i;
-  for(i= startEnd[idx]; i< startEnd[idx+1]; i++) {
-    color = hsv2rgb(fxVars[idx][3] + fxVars[idx][1] * i / (startEnd[idx+1] - startEnd[idx]),
-      fxVars[idx][4], 255);
+  byte *ptr = &imgData[0];
+  long color, i;
+  for(i=0; i<numPixels; i++) {
+    color = hsv2rgb(fxVars[3] + fxVars[1] * i / numPixels,
+      255, 255);
     *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
   }
-  fxVars[idx][3] += fxVars[idx][2];
-  fxVars[idx][4] += fxVars[idx][5];
-  if (fxVars[idx][4] <= 64) fxVars[idx][5] = -fxVars[idx][5];
-  if (fxVars[idx][4] >= 255) fxVars[idx][5] = -fxVars[idx][5];
- }
- 
- 
-
-//
-//
-//
-//// Saturation effect .
-//void renderEffect02(byte idx) {
-//  if(fxVars[idx][0] == 0) { // Initialize effect?
-//    // Number of repetitions (complete loops around color wheel); any
-//    // more than 4 per meter just looks too chaotic and un-rainbow-like.
-//    // Store as hue 'distance' around complete belt:
-////    fxVars[idx][1] = (1 + random(2 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 1536;
-//    fxVars[idx][1] = 2;
-//    // Frame-to-frame hue increment (speed) -- may be positive or negative,
-//    // but magnitude shouldn't be so small as to be boring.  It's generally
-//    // still less than a full pixel per frame, making motion very smooth.
-////    fxVars[idx][2] = 8 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
-//    fxVars[idx][2] = 1 ;
-//    // Reverse speed and hue shift direction half the time.
-// //   if(random(2) == 0) fxVars[idx][1] = -fxVars[idx][1];
-// //   if(random(2) == 0) fxVars[idx][2] = -fxVars[idx][2];
-//    fxVars[idx][3] = 0; // Current position
-//    fxVars[idx][4] = 255; 
-// 
-//    fxVars[idx][0] = 1; // Effect initialized
-//  }
-//
-//  byte *ptr = imgData[idx];
-//  long color;
-//  int i;
-//  for(i= startEnd[idx]; i< startEnd[idx+1]; i++) {
-//    color = hsv2rgb(150,                                                                //hue
-//              fxVars[idx][3] + / (startEnd[idx+1] - startEnd[idx]),  //saturation
-//               255);                                                                    //value
-//    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-//  }
-//  fxVars[idx][3] += fxVars[idx][2];
-////  fxVars[idx][4] --;
-//}
-//
-//
-
- 
-
+  fxVars[3] += fxVars[2];
+}
+*/
 
 /*
 
+// Sine wave chase effect
+void renderEffect02() {
+  if(fxVars[0] == 0) { // Initialize effect?
+    fxVars[1] = random(1536); // Random hue
+    // Number of repetitions (complete loops around color wheel);
+    // any more than 4 per meter just looks too chaotic.
+    // Store as distance around complete belt in half-degree units:
+    fxVars[2] = (1 + random(4 * ((numPixels + 31) / 32))) * 720;
+    // Frame-to-frame increment (speed) -- may be positive or negative,
+    // but magnitude shouldn't be so small as to be boring.  It's generally
+    // still less than a full pixel per frame, making motion very smooth.
+    fxVars[3] = 4 + random(fxVars[1]) / numPixels;
+    // Reverse direction half the time.
+    if(random(2) == 0) fxVars[3] = -fxVars[3];
+    fxVars[4] = 0; // Current position
+    fxVars[0] = 1; // Effect initialized
+  }
+
+  byte *ptr = &imgData[0];
+  int  foo;
+  long color, i;
+  for(long i=0; i<numPixels; i++) {
+    foo = fixSin(fxVars[4] + fxVars[2] * i / numPixels);
+    // Peaks of sine wave are white, troughs are black, mid-range
+    // values are pure hue (100% saturated).
+    color = (foo >= 0) ?
+       hsv2rgb(fxVars[1], 254 - (foo * 2), 255) :
+       hsv2rgb(fxVars[1], 255, 254 + foo * 2);
+    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
+  }
+  fxVars[4] += fxVars[3];
+}
+
+*/
+/*
 // Data for American-flag-like colors (20 pixels representing
 // blue field, stars and stripes).  This gets "stretched" as needed
 // to the full LED strip length in the flag effect code, below.
@@ -319,6 +260,76 @@ void renderEffect03() {
 // TO DO: Add more effects here...Larson scanner, etc.
 
 */
+
+/*
+
+// ---------------------------------------------------------------------------
+// Alpha channel effect rendering functions.  Like the image rendering
+// effects, these are typically parametrically-generated...but unlike the
+// images, there is only one alpha renderer "in flight" at any given time.
+// So it would be okay to use local static variables for storing state
+// information...but, given that there could end up being many more render
+// functions here, and not wanting to use up all the RAM for static vars
+// for each, a third row of fxVars is used for this information.
+
+// Simplest alpha effect: fade entire strip over duration of transition.
+void renderAlpha00(void) {
+  byte fade = 255L * tCounter / transitionTime;
+  for(int i=0; i<numPixels; i++) alphaMask[i] = fade;
+}
+
+// Straight left-to-right or right-to-left wipe
+void renderAlpha01(void) {
+  long x, y, b;
+  if(fxVars[2][0] == 0) {
+    fxVars[2][1] = random(1, numPixels); // run, in pixels
+    fxVars[2][2] = (random(2) == 0) ? 255 : -255; // rise
+    fxVars[2][0] = 1; // Transition initialized
+  }
+
+  b = (fxVars[2][2] > 0) ?
+    (255L + (numPixels * fxVars[2][2] / fxVars[2][1])) *
+      tCounter / transitionTime - (numPixels * fxVars[2][2] / fxVars[2][1]) :
+    (255L - (numPixels * fxVars[2][2] / fxVars[2][1])) *
+      tCounter / transitionTime;
+  for(x=0; x<numPixels; x++) {
+    y = x * fxVars[2][2] / fxVars[2][1] + b; // y=mx+b, fixed-point style
+    if(y < 0)         alphaMask[x] = 0;
+    else if(y >= 255) alphaMask[x] = 255;
+    else              alphaMask[x] = (byte)y;
+  }
+}
+
+// Dither reveal between images
+void renderAlpha02(void) {
+  long fade;
+  int  i, bit, reverse, hiWord;
+
+  if(fxVars[2][0] == 0) {
+    // Determine most significant bit needed to represent pixel count.
+    int hiBit, n = (numPixels - 1) >> 1;
+    for(hiBit=1; n; n >>=1) hiBit <<= 1;
+    fxVars[2][1] = hiBit;
+    fxVars[2][0] = 1; // Transition initialized
+  }
+
+  for(i=0; i<numPixels; i++) {
+    // Reverse the bits in i for ordered dither:
+    for(reverse=0, bit=1; bit <= fxVars[2][1]; bit <<= 1) {
+      reverse <<= 1;
+      if(i & bit) reverse |= 1;
+    }
+    fade   = 256L * numPixels * tCounter / transitionTime;
+    hiWord = (fade >> 8);
+    if(reverse == hiWord)     alphaMask[i] = (fade & 255); // Remainder
+    else if(reverse < hiWord) alphaMask[i] = 255;
+    else                      alphaMask[i] = 0;
+  }
+}
+
+// TO DO: Add more transitions here...triangle wave reveal, etc.
+*/
+
 // ---------------------------------------------------------------------------
 // Assorted fixed-point utilities below this line.  Not real interesting.
 
