@@ -7,20 +7,21 @@
 /*****************************************************************************/
 
 // Number of RGB LEDs in strand:
-const int nLEDs = 256; //160 or 256
+const int nLEDs = 160; //160 or 256 ***** change me for different strips
 
 // Chose 2 pins for output; can be any valid output pins:
 int dataPin  = 2;
 int clockPin = 3;
 
 // Setup image data arrays
-byte imgData[3][256];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
-// 282 for long, 180 for short
+byte imgData[3][180];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
+// 282 for long, 180 for short ***** change me for different strips
 int  fxVars[3][6];             // Effect instance variables
 long fxVarLongs[3][6];        // Effect instance long variables
-int  startEnd[4] = {0, 82, 176, 256}; // index points for strip segment ID, hard coded for TL window segments
+int  startEnd[4] = {0, 50, 110, 160}; // index points for strip segment ID, hard coded for TL window segments
 // {0, 82, 176, 256} for long
 // {0, 50, 110, 160} for short
+// ***** change me for different strips
 // Program variables
 
 byte      renderIdx[3] = {0, 0 , 0};        // hard coded render choice start state
