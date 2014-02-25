@@ -149,36 +149,54 @@ void callback() {
 // Simplest rendering effect: fill entire image with solid color
 void renderEffect00() {
   // Only needs to be rendered once, when effect is initialized:
-  if(fxVars[0] == 0) {
-
-
-//    byte *ptr = &imgData[0],
-//      r = random(256), g = random(256), b = random(256);
-//    for(int i=0; i<numPixels; i++) {
-//      *ptr++ = r; *ptr++ = g; *ptr++ = b;
-//    }
-
+  
   byte *ptr = &imgData[0];
-  long color;
-  long hue = 1;
+  long color, compare;
+  long hue;
+  long point; //random(numPixels);
+  long intensity = 255;
+
+  
+  if(fxVars[0] == 0) {
+     hue = random(1560);
+     point = random(numPixels);
+     fxVars[1] = hue;
+     fxVars[2] = point;
+     fxVars[3] = 1; //direction
+     
+     fxVars[0] = 1; // Effect initialized
+     
+  } 
+   
+   hue=fxVars[1];
+   point = fxVars[2]; 
     
    // No transition in progress; just show back image
    for(long i=0; i<numPixels; i++) {
-   // foo = fixSin(fxVars[idx][4] + fxVars[idx][2] * i / (startEnd[idx+1] - startEnd[idx]));
-    // Peaks of sine wave are white, troughs are black, mid-range
-    // values are pure hue (100% saturated).
-  //  color = (foo >= 0) ?
-      hue ++;
-      color = hsv2rgb(hue, 255, 255); //:
- //      hsv2rgb(fxVarLongs[idx][1], 255, 254 + foo * 2);
+      compare = (i - point);
+      if (compare >= -8 && compare <0) {
+         hue +=40;
+         intensity -= 15;
+       }
+       if (compare <= 8 && compare >0) {
+         hue -=40;
+         intensity += 15;
+       }
+       if (i == point){
+           color = hsv2rgb(1,20, 255);
+       } else {  
+        color = hsv2rgb(hue, intensity, 255); //:
+       }
+    //  hsv2rgb(fxVarLongs[idx][1], 255, 254 + foo * 2);
     *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-    if (hue > 1560) hue = 1;
-//     Serial.print("the hue is: ");Serial.println(hue);
-  }
+      if (hue > 1560) hue = 1;
+     
+   }
+   fxVars[2] += fxVars[3];
+   if(fxVars[2] == numPixels) {fxVars[3] = -1; } // reverse direction when it hits the end.
+   if(fxVars[2] == 1) {fxVars[3] = 1;} 
+   delay(10);
 
-
-    fxVars[0] = 1; // Effect initialized
-  }
 }
  
 
