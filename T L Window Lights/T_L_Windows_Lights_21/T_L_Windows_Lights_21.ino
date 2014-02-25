@@ -41,9 +41,7 @@ long fxVarLongs[20];          // effect instance long variables
 
 // function prototypes, leave these be :)
 void renderEffect00();
-//void renderEffect01();
-//void renderEffect02();
-//void renderEffect03();
+int getInput();
 void callback();
 byte gamma(byte x);
 long hsv2rgb(long h, byte s, byte v);
@@ -64,10 +62,6 @@ void setup() {
   // the callback function will be invoked immediately when attached, and
   // the first thing the calback does is update the strip.
   strip.begin();
-
-// Serial.begin (9600);
-//  Serial.println("Starting LED strip code");
-  
   
   // Initialize random number generator from a floating analog input.
   randomSeed(analogRead(0));
@@ -132,23 +126,10 @@ void callback() {
 
 
 // ---------------------------------------------------------------------------
-// Image effect rendering functions.  Each effect is generated parametrically
-// (that is, from a set of numbers, usually randomly seeded).  Because both
-// back and front images may be rendering the same effect at the same time
-// (but with different parameters), a distinct block of parameter memory is
-// required for each image.  The 'fxVars' array is a two-dimensional array
-// of integers, where the major axis is either 0 or 1 to represent the two
-// images, while the minor axis holds 50 elements -- this is working scratch
-// space for the effect code to preserve its "state."  The meaning of each
-// element is generally unique to each rendering effect, but the first element
-// is most often used as a flag indicating whether the effect parameters have
-// been initialized yet.  When the back/front image indexes swap at the end of
-// each transition, the corresponding set of fxVars, being keyed to the same
-// indexes, are automatically carried with them.
+// Image effect rendering function
 
 // Simplest rendering effect: fill entire image with solid color
 void renderEffect00() {
-  // Only needs to be rendered once, when effect is initialized:
   
   byte *ptr = &imgData[0];
   long color, compare;
@@ -159,7 +140,7 @@ void renderEffect00() {
   
   if(fxVars[0] == 0) {
      hue = random(1560);
-     point = random(numPixels);
+     point = getInput();
      fxVars[1] = hue;
      fxVars[2] = point;
      fxVars[3] = 1; //direction
@@ -194,204 +175,15 @@ void renderEffect00() {
    }
    fxVars[2] += fxVars[3];
    if(fxVars[2] == numPixels) {fxVars[3] = -1; } // reverse direction when it hits the end.
-   if(fxVars[2] == 1) {fxVars[3] = 1;} 
+   if(fxVars[2] == 8) {fxVars[3] = 1;} 
    delay(10);
 
 }
  
-
-/*
-// Rainbow effect (1 or more full loops of color wheel at 100% saturation).
-// Not a big fan of this pattern (it's way overused with LED stuff), but it's
-// practically part of the Geneva Convention by now.
-void renderEffect01() {
-  if(fxVars[0] == 0) { // Initialize effect?
-    // Number of repetitions (complete loops around color wheel); any
-    // more than 4 per meter just looks too chaotic and un-rainbow-like.
-    // Store as hue 'distance' around complete belt:
-    fxVars[1] = (1 + random(2 * ((numPixels + 31) / 32))) * 1536;
-    // Frame-to-frame hue increment (speed) -- may be positive or negative,
-    // but magnitude shouldn't be so small as to be boring.  It's generally
-    // still less than a full pixel per frame, making motion very smooth.
-    fxVars[2] = 2 + random(fxVars[1]) / numPixels;
-    // Reverse speed and hue shift direction half the time.
-    if(random(2) == 0) fxVars[1] = -fxVars[1];
-    if(random(2) == 0) fxVars[2] = -fxVars[2];
-    fxVars[3] = 0; // Current position
-    fxVars[0] = 1; // Effect initialized
-  }
-
-  byte *ptr = &imgData[0];
-  long color, i;
-  for(i=0; i<numPixels; i++) {
-    color = hsv2rgb(fxVars[3] + fxVars[1] * i / numPixels,
-      255, 255);
-    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-  }
-  fxVars[3] += fxVars[2];
+// this should check a value on a sensor and determine where the intense point lies. 
+int getInput(){
+  return random(numPixels);
 }
-*/
-
-/*
-
-// Sine wave chase effect
-void renderEffect02() {
-  if(fxVars[0] == 0) { // Initialize effect?
-    fxVars[1] = random(1536); // Random hue
-    // Number of repetitions (complete loops around color wheel);
-    // any more than 4 per meter just looks too chaotic.
-    // Store as distance around complete belt in half-degree units:
-    fxVars[2] = (1 + random(4 * ((numPixels + 31) / 32))) * 720;
-    // Frame-to-frame increment (speed) -- may be positive or negative,
-    // but magnitude shouldn't be so small as to be boring.  It's generally
-    // still less than a full pixel per frame, making motion very smooth.
-    fxVars[3] = 4 + random(fxVars[1]) / numPixels;
-    // Reverse direction half the time.
-    if(random(2) == 0) fxVars[3] = -fxVars[3];
-    fxVars[4] = 0; // Current position
-    fxVars[0] = 1; // Effect initialized
-  }
-
-  byte *ptr = &imgData[0];
-  int  foo;
-  long color, i;
-  for(long i=0; i<numPixels; i++) {
-    foo = fixSin(fxVars[4] + fxVars[2] * i / numPixels);
-    // Peaks of sine wave are white, troughs are black, mid-range
-    // values are pure hue (100% saturated).
-    color = (foo >= 0) ?
-       hsv2rgb(fxVars[1], 254 - (foo * 2), 255) :
-       hsv2rgb(fxVars[1], 255, 254 + foo * 2);
-    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-  }
-  fxVars[4] += fxVars[3];
-}
-
-*/
-/*
-// Data for American-flag-like colors (20 pixels representing
-// blue field, stars and stripes).  This gets "stretched" as needed
-// to the full LED strip length in the flag effect code, below.
-// Can change this data to the colors of your own national flag,
-// favorite sports team colors, etc.  OK to change number of elements.
-#define C_RED   160,   100,   0
-#define C_WHITE 10, 200, 0
-#define C_BLUE    64, 0, 110
-//#define C_BLUE 110, 0, 64
-PROGMEM prog_uchar flagTable[]  = {
-  C_BLUE , C_WHITE, C_BLUE , C_WHITE, C_BLUE , C_WHITE, C_BLUE,
-  C_RED  , C_WHITE, C_RED  , C_WHITE, C_RED  , C_WHITE, C_RED ,
-  C_WHITE, C_RED  , C_WHITE, C_RED  , C_WHITE, C_RED };
-
-// Wavy flag effect
-void renderEffect03() {
-  long i, sum, s, x;
-  int  idx1, idx2, a, b;
-  if(fxVars[0] == 0) { // Initialize effect?
-    fxVars[1] = 720 + random(720); // Wavyness
-    fxVars[2] = 4 + random(10);    // Wave speed
-    fxVars[3] = 200 + random(200); // Wave 'puckeryness'
-    fxVars[4] = 0;                 // Current  position
-    fxVars[0] = 1;                 // Effect initialized
-  }
-  for(sum=0, i=0; i<numPixels-1; i++) {
-    sum += fxVars[3] + fixCos(fxVars[4] + fxVars[1] *
-      i / numPixels);
-  }
-
-  byte *ptr = &imgData[0];
-  for(s=0, i=0; i<numPixels; i++) {
-    x = 256L * ((sizeof(flagTable) / 3) - 1) * s / sum;
-    idx1 =  (x >> 8)      * 3;
-    idx2 = ((x >> 8) + 1) * 3;
-    b    = (x & 255) + 1;
-    a    = 257 - b;
-    *ptr++ = ((pgm_read_byte(&flagTable[idx1    ]) * a) +
-              (pgm_read_byte(&flagTable[idx2    ]) * b)) >> 8;
-    *ptr++ = ((pgm_read_byte(&flagTable[idx1 + 1]) * a) +
-              (pgm_read_byte(&flagTable[idx2 + 1]) * b)) >> 8;
-    *ptr++ = ((pgm_read_byte(&flagTable[idx1 + 2]) * a) +
-              (pgm_read_byte(&flagTable[idx2 + 2]) * b)) >> 8;
-    s += fxVars[3] + fixCos(fxVars[4] + fxVars[1] *
-      i / numPixels);
-  }
-
-  fxVars[4] += fxVars[2];
-  if(fxVars[4] >= 720) fxVars[4] -= 720;
-}
-
-// TO DO: Add more effects here...Larson scanner, etc.
-
-*/
-
-/*
-
-// ---------------------------------------------------------------------------
-// Alpha channel effect rendering functions.  Like the image rendering
-// effects, these are typically parametrically-generated...but unlike the
-// images, there is only one alpha renderer "in flight" at any given time.
-// So it would be okay to use local static variables for storing state
-// information...but, given that there could end up being many more render
-// functions here, and not wanting to use up all the RAM for static vars
-// for each, a third row of fxVars is used for this information.
-
-// Simplest alpha effect: fade entire strip over duration of transition.
-void renderAlpha00(void) {
-  byte fade = 255L * tCounter / transitionTime;
-  for(int i=0; i<numPixels; i++) alphaMask[i] = fade;
-}
-
-// Straight left-to-right or right-to-left wipe
-void renderAlpha01(void) {
-  long x, y, b;
-  if(fxVars[2][0] == 0) {
-    fxVars[2][1] = random(1, numPixels); // run, in pixels
-    fxVars[2][2] = (random(2) == 0) ? 255 : -255; // rise
-    fxVars[2][0] = 1; // Transition initialized
-  }
-
-  b = (fxVars[2][2] > 0) ?
-    (255L + (numPixels * fxVars[2][2] / fxVars[2][1])) *
-      tCounter / transitionTime - (numPixels * fxVars[2][2] / fxVars[2][1]) :
-    (255L - (numPixels * fxVars[2][2] / fxVars[2][1])) *
-      tCounter / transitionTime;
-  for(x=0; x<numPixels; x++) {
-    y = x * fxVars[2][2] / fxVars[2][1] + b; // y=mx+b, fixed-point style
-    if(y < 0)         alphaMask[x] = 0;
-    else if(y >= 255) alphaMask[x] = 255;
-    else              alphaMask[x] = (byte)y;
-  }
-}
-
-// Dither reveal between images
-void renderAlpha02(void) {
-  long fade;
-  int  i, bit, reverse, hiWord;
-
-  if(fxVars[2][0] == 0) {
-    // Determine most significant bit needed to represent pixel count.
-    int hiBit, n = (numPixels - 1) >> 1;
-    for(hiBit=1; n; n >>=1) hiBit <<= 1;
-    fxVars[2][1] = hiBit;
-    fxVars[2][0] = 1; // Transition initialized
-  }
-
-  for(i=0; i<numPixels; i++) {
-    // Reverse the bits in i for ordered dither:
-    for(reverse=0, bit=1; bit <= fxVars[2][1]; bit <<= 1) {
-      reverse <<= 1;
-      if(i & bit) reverse |= 1;
-    }
-    fade   = 256L * numPixels * tCounter / transitionTime;
-    hiWord = (fade >> 8);
-    if(reverse == hiWord)     alphaMask[i] = (fade & 255); // Remainder
-    else if(reverse < hiWord) alphaMask[i] = 255;
-    else                      alphaMask[i] = 0;
-  }
-}
-
-// TO DO: Add more transitions here...triangle wave reveal, etc.
-*/
 
 // ---------------------------------------------------------------------------
 // Assorted fixed-point utilities below this line.  Not real interesting.
