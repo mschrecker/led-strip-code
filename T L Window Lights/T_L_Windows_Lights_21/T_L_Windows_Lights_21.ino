@@ -1,3 +1,5 @@
+// Bouncing light effect, whole window
+
 // This is a modified verson of the LEDbeltKit_alt code from
 // the LPD8806 library. This code requires that library to run.
 
