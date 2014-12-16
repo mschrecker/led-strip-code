@@ -1,4 +1,5 @@
 // Code for Liminal Lights installation at Gray Area Foundation
+// 3 frames, 4 patterns (solid, color chase, rainbow, rainbow with desaturation
 
 // This is a modified verson of the LEDbeltKit_alt code from
 // the LPD8806 library. This code requires that library to run.
@@ -14,18 +15,18 @@
 /*****************************************************************************/
 
 // Number of RGB LEDs in strand:
-const int nLEDs = 160; //160 or 256 ***** change me for different strips
+const int nLEDs = 256; //160 or 256 ***** change me for different strips
 
 // Chose 2 pins for output; can be any valid output pins:
 int dataPin  = 2;
 int clockPin = 3;
 
 // Setup image data arrays
-byte imgData[3][180];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
+byte imgData[3][282];  //large enough to fit the data for the longest segment (segment leds * 3)  ``  
 // 282 for long, 180 for short ***** change me for different strips
 int  fxVars[3][6];             // Effect instance variables
 long fxVarLongs[3][6];        // Effect instance long variables
-int  startEnd[4] = {0, 50, 110, 160}; // index points for strip segment ID, hard coded for TL window segments
+int  startEnd[4] = {0, 82, 176, 256}; // index points for strip segment ID, hard coded for TL window segments
 // {0, 82, 176, 256} for long
 // {0, 50, 110, 160} for short
 // ***** change me for different strips
@@ -60,9 +61,9 @@ char fixCos(int angle);
 // simply append new ones to the appropriate list here:
 void (*renderEffect[])(byte) = {
   renderEffect00,
-  renderEffect01/*,
+  renderEffect01,
   renderEffect02,
-  renderEffect03*/};
+  renderEffect03};
 
 
 void setup() {
@@ -152,9 +153,38 @@ void callback() {
 // each transition, the corresponding set of fxVars, being keyed to the same
 // indexes, are automatically carried with them.
 
+// Simplest rendering effect: fill entire image with solid color
+void renderEffect00(byte idx) {
+  // Only needs to be rendered once, when effect is initialized:
+  if(fxVars[idx][0] == 0) {
+//  byte r, g, b;
+//    byte *ptr = imgData[idx];
+//      switch (idx) {
+//        case 0:
+//           r= 128 - fxVars[idx][0]; g=0; b=0;
+//          break;
+//         case 1:
+//           r=0; g=128 - fxVars[idx][0]; b=0;
+//           break;
+//           case 2:
+//           r=0; g=0, b=128 - fxVars[idx][0];
+//      }
+      
+  byte *ptr = imgData[idx],
+      r = random(256), g = random(256), b = random(256);
+    for(int i= startEnd[idx]; i< startEnd[idx+1]; i++) {
+      *ptr++ = r; *ptr++ = g; *ptr++ = b;
+ 
+      
+    
+    }
+    fxVars[idx][0]= 1; // Effect initialized
+  }
+}
+
 
 // Sine wave chase effect
-void renderEffect00(byte idx) {
+void renderEffect01(byte idx) {
   if(fxVars[idx][0] == 0) { // Initialize effect?
     fxVarLongs[idx][1] = random(1536); // Random hue
     // Number of repetitions (complete loops around color wheel);
@@ -191,7 +221,7 @@ void renderEffect00(byte idx) {
 
 // Rainbow effect with gradual de-saturation.
  
-void renderEffect01(byte idx) {
+void renderEffect02(byte idx) {
   if(fxVars[idx][0] == 0) { // Initialize effect?
     // Number of repetitions (complete loops around color wheel); any
     // more than 4 per meter just looks too chaotic and un-rainbow-like.
@@ -226,48 +256,40 @@ void renderEffect01(byte idx) {
  }
  
  
+// Rainbow effect (1 or more full loops of color wheel at 100% saturation).
+// Not a big fan of this pattern (it's way overused with LED stuff), but it's
+// practically part of the Geneva Convention by now.
+void renderEffect03(byte idx) {
+  if(fxVars[idx][0] == 0) { // Initialize effect?
+    // Number of repetitions (complete loops around color wheel); any
+    // more than 4 per meter just looks too chaotic and un-rainbow-like.
+    // Store as hue 'distance' around complete belt:
+    fxVars[idx][1] = (1 + random(2 * (((nLEDs / 3) + 31) / 32))) * 1536;
+    // Frame-to-frame hue increment (speed) -- may be positive or negative,
+    // but magnitude shouldn't be so small as to be boring.  It's generally
+    // still less than a full pixel per frame, making motion very smooth.
+    fxVars[idx][2] = 2 + random(fxVars[idx][1]) / (nLEDs / 3);
+    // Reverse speed and hue shift direction half the time.
+    if(random(2) == 0) fxVars[idx][1] = -fxVars[idx][1];
+    if(random(2) == 0) fxVars[idx][2] = -fxVars[idx][2];
+    fxVars[idx][3] = 0; // Current position
+    fxVars[idx][4] = 255; // Saturation value
+    fxVars[idx][0] = 1; // Effect initialized
+  }
 
-//
-//
-//
-//// Saturation effect .
-//void renderEffect02(byte idx) {
-//  if(fxVars[idx][0] == 0) { // Initialize effect?
-//    // Number of repetitions (complete loops around color wheel); any
-//    // more than 4 per meter just looks too chaotic and un-rainbow-like.
-//    // Store as hue 'distance' around complete belt:
-////    fxVars[idx][1] = (1 + random(2 * (((startEnd[idx+1] - startEnd[idx]) + 31) / 32))) * 1536;
-//    fxVars[idx][1] = 2;
-//    // Frame-to-frame hue increment (speed) -- may be positive or negative,
-//    // but magnitude shouldn't be so small as to be boring.  It's generally
-//    // still less than a full pixel per frame, making motion very smooth.
-////    fxVars[idx][2] = 8 + random(fxVars[idx][1]) / (startEnd[idx+1] - startEnd[idx]);
-//    fxVars[idx][2] = 1 ;
-//    // Reverse speed and hue shift direction half the time.
-// //   if(random(2) == 0) fxVars[idx][1] = -fxVars[idx][1];
-// //   if(random(2) == 0) fxVars[idx][2] = -fxVars[idx][2];
-//    fxVars[idx][3] = 0; // Current position
-//    fxVars[idx][4] = 255; 
-// 
-//    fxVars[idx][0] = 1; // Effect initialized
-//  }
-//
-//  byte *ptr = imgData[idx];
-//  long color;
-//  int i;
-//  for(i= startEnd[idx]; i< startEnd[idx+1]; i++) {
-//    color = hsv2rgb(150,                                                                //hue
-//              fxVars[idx][3] + / (startEnd[idx+1] - startEnd[idx]),  //saturation
-//               255);                                                                    //value
-//    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
-//  }
-//  fxVars[idx][3] += fxVars[idx][2];
-////  fxVars[idx][4] --;
-//}
-//
-//
+  byte *ptr = imgData[idx];
+  long color;
+  int i;
+  for(i= startEnd[idx]; i< startEnd[idx+1]; i++) {
+    color = hsv2rgb(fxVars[idx][3] + fxVars[idx][1] * i / (nLEDs / 3),
+      fxVars[idx][4], 255);
+    *ptr++ = color >> 16; *ptr++ = color >> 8; *ptr++ = color;
+  }
+  fxVars[idx][3] += fxVars[idx][2];
+  fxVars[idx][4] --;
+}
 
- 
+
 
 
 /*
